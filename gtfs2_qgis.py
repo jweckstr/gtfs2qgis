@@ -23,13 +23,14 @@
 """
 from PyQt5.QtCore import QSettings, QTranslator, qVersion, QCoreApplication
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QAction
+from PyQt5.QtWidgets import QAction, QFileDialog
 
 # Initialize Qt resources from file resources.py
 from .resources import *
 # Import the code for the dialog
 from .gtfs2_qgis_dialog import GTFS2QGISDialog
 import os.path
+#from gtfspy.import_gtfs import import_gtfs
 
 
 class GTFS2QGIS:
@@ -179,6 +180,21 @@ class GTFS2QGIS:
                 action)
             self.iface.removeToolBarIcon(action)
 
+    def select_input_files(self):
+        filenames, _filter = QFileDialog.getOpenFileNames(
+            self.dlg, "Select input file(s) ", "", '*.zip')
+        self.dlg.lineEdit.setText("; ".join(filenames))
+
+    def select_output_file(self):
+        output_filename, _filter = QFileDialog.getSaveFileName(
+            self.dlg, "Select output file ", "", '*.sqlite')
+        output_filename = output_filename+".sqlite"
+        self.dlg.lineEdit_2.setText(output_filename)
+
+    def import_gtfs(self):
+        output_filename = self.dlg.lineEdit_2.text()
+        import_filenames = self.dlg.lineEdit_2.text().split("; ")
+
     def run(self):
         """Run method that performs all the real work"""
 
@@ -186,10 +202,16 @@ class GTFS2QGIS:
         # Only create GUI ONCE in callback, so that it will only load when the plugin is started
         if self.first_start is True:
             self.first_start = False
+
             self.dlg = GTFS2QGISDialog()
+            self.dlg.pushButton_input.clicked.connect(self.select_input_files)
+            self.dlg.pushButton_output.clicked.connect(self.select_output_file)
+
+
 
         # show the dialog
         self.dlg.show()
+
         # Run the dialog event loop
         result = self.dlg.exec_()
         # See if OK was pressed
@@ -197,3 +219,5 @@ class GTFS2QGIS:
             # Do something useful here - delete the line containing pass and
             # substitute with your code.
             pass
+
+            #import_gtfs(input_paths, output_path)
