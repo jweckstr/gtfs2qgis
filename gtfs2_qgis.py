@@ -21,6 +21,11 @@
  *                                                                         *
  ***************************************************************************/
 """
+import sys
+import os
+path_to_add = os.path.join(os.path.dirname(__file__), "gtfspy/")
+if path_to_add not in sys.path:
+    sys.path.append(path_to_add)
 from PyQt5.QtCore import QSettings, QTranslator, qVersion, QCoreApplication
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QAction, QFileDialog
@@ -30,7 +35,8 @@ from .resources import *
 # Import the code for the dialog
 from .gtfs2_qgis_dialog import GTFS2QGISDialog
 import os.path
-#from gtfspy.import_gtfs import import_gtfs
+from gtfspy.import_gtfs import import_gtfs
+#import seaborn as sns
 
 
 class GTFS2QGIS:
@@ -65,7 +71,7 @@ class GTFS2QGIS:
         # Declare instance attributes
         self.actions = []
         self.menu = self.tr(u'&GTFS2QGIS')
-
+        self.checker = None
         # Check if plugin was started the first time in current QGIS session
         # Must be set in initGui() to survive plugin reloads
         self.first_start = None
@@ -181,19 +187,44 @@ class GTFS2QGIS:
             self.iface.removeToolBarIcon(action)
 
     def select_input_files(self):
-        filenames, _filter = QFileDialog.getOpenFileNames(
-            self.dlg, "Select input file(s) ", "", '*.zip')
+        if self.dlg.folderCheck.isChecked():
+            self.select_input_directory()
+        else:
+            filenames, _filter = QFileDialog.getOpenFileNames(
+                self.dlg, "Select input file(s) ", "", '*.zip')
+            self.dlg.lineEdit.setText("; ".join(filenames))
+
+    def select_input_directory(self):
+        dir = QFileDialog.getExistingDirectory(
+            self.dlg, "Select input directory")
+        filenames = []
+        for root, dirs, files in os.walk(dir):
+            for file in files:
+                if file[-4:] == ".zip":
+                    filenames.append(os.path.join(root, file))
         self.dlg.lineEdit.setText("; ".join(filenames))
 
     def select_output_file(self):
+        sqlite_suffix = ".sqlite"
         output_filename, _filter = QFileDialog.getSaveFileName(
             self.dlg, "Select output file ", "", '*.sqlite')
-        output_filename = output_filename+".sqlite"
+        if not output_filename[-7:] == sqlite_suffix:
+            output_filename = output_filename+sqlite_suffix
         self.dlg.lineEdit_2.setText(output_filename)
 
-    def import_gtfs(self):
+    def import_process(self):
         output_filename = self.dlg.lineEdit_2.text()
-        import_filenames = self.dlg.lineEdit_2.text().split("; ")
+        import_filenames = self.dlg.lineEdit.text().split("; ")
+        import_gtfs(import_filenames, output_filename)
+
+    def set_checker(self, int):
+        self.checker = self.dlg.folderCheck.isChecked()
+
+    def state_changed(self, int):
+        if self.dlg.folderCheck.isChecked():
+            self.dlg.my_label.setText("CHECKED!")
+        else:
+            self.dlg.my_label.setText("UNCHECKED!")
 
     def run(self):
         """Run method that performs all the real work"""
@@ -204,11 +235,13 @@ class GTFS2QGIS:
             self.first_start = False
 
             self.dlg = GTFS2QGISDialog()
+
+            #self.dlg.folderCheck.stateChanged.connect(self.set_checker)
             self.dlg.pushButton_input.clicked.connect(self.select_input_files)
             self.dlg.pushButton_output.clicked.connect(self.select_output_file)
 
 
-
+        # TODO: how to implement the isChecked after the dlg is visible?
         # show the dialog
         self.dlg.show()
 
@@ -218,6 +251,6 @@ class GTFS2QGIS:
         if result:
             # Do something useful here - delete the line containing pass and
             # substitute with your code.
-            pass
+            self.import_process()
 
             #import_gtfs(input_paths, output_path)
